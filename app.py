@@ -27,6 +27,12 @@ class UserModel(db.Model):
     def __repr__(self):
         return '<User %r>' % self.username
 
+class EmailModel(db.Model):
+    __tablename__ = 'emails'
+    id = db.Column(db.Integer, primary_key=True)
+    address = db.Column(db.String(128), nullable=False)
+    active = db.Column(db.Boolean(), default=True, nullable=False)
+
 @app.route("/add/<name>")
 def index(name):
     usr = UserModel(username=name, password=generate_password_hash("test"))
@@ -51,6 +57,7 @@ def register():
             return jsonify({"success": "Login success", "token": token.decode('UTF-8')})
         return jsonify({"error": "Incorrect password"})
     else:
+        # Test form
         return '''\
         <form action="/test" method="POST">
             <input name="username">
@@ -62,10 +69,8 @@ def do_login():
     args = parser.parse_args()
     username = args['username']
     password = args['password']
-    if username == None:
-        return jsonify({"error": f"Missing username argument."}, 400 )
-    if password == None:
-        return jsonify({"error": f"Missing password argument."}, 400 )
+    if username == None or password == None:
+            return jsonify({"error": f"Missing username either username or password."}, 400)
     user = db.session.query(UserModel).filter_by(username=username).first()
     if user == None:
         return jsonify({"error": f"Could not find user {username}."}, 400 )
@@ -97,10 +102,8 @@ class CreateUser(Resource):
         args = parser.parse_args()
         username = args['username']
         password = args['password']
-        if username == None:
-            return {"error": f"Missing username argument."}, 400 
-        if password == None:
-            return {"error": f"Missing password argument."}, 400 
+        if username == None or password == None:
+            return {"error": f"Missing username either username or password."}, 400 
         test = db.session.query(UserModel).filter_by(username=username).first()
         if test != None:
             return {"error": f"Username {username} already exists."}, 400 
@@ -116,10 +119,8 @@ class LoginUser(Resource):
         username = args['username']
         password = args['password']
         token = args['token']
-        if username == None:
-            return {"error": f"Missing username argument."}, 400 
-        if password == None:
-            return {"error": f"Missing password argument."}, 400 
+        if username == None or password == None:
+            return {"error": f"Missing username either username or password."}, 400 
         user = db.session.query(UserModel).filter_by(username=username).first()
         if check_password_hash(user.password, password):
             token = jwt.encode({'user': username, 'exp': datetime.utcnow() + timedelta(minutes=30)}, app.config['SECRET_KEY'])
