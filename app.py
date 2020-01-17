@@ -17,6 +17,7 @@ api = Api(app)
 parser = reqparse.RequestParser()
 parser.add_argument('username', type=str, location='json')
 parser.add_argument('password', type=str, location='json')
+parser.add_argument('email', type=str, location='json')
 
 class UserModel(db.Model):
     __tablename__ = 'users'
@@ -61,6 +62,7 @@ def register():
         return '''\
         <form action="/test" method="POST">
             <input name="username">
+            <input type="email" name="email">
             <input name="password">
             <input type="submit">
         </form>'''
