@@ -42,7 +42,7 @@ class EmailModel(db.Model):
     active = db.Column(db.Boolean(), default=True, nullable=False)
 
 @app.route("/")
-def index(name):
+def index():
     return f'<h1>Index</h1>'
 
 @app.route('/cookie/')
