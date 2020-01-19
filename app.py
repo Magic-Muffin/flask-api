@@ -5,11 +5,18 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+import dotenv
+import os
 
+dotenv.load_dotenv()
 app = Flask(__name__)
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///local.db"
-app.config['SECRET_KEY'] = 'secret'
+if os.getenv('IS_PROD') == 'False':
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DEBUG_DB')
+    app.config['SECRET_KEY'] = os.getenv('DEBUG_SECRET')
+else:
+    app.config['SECRET_KEY'] = 'hfushagusilafduslia'
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('PROD_DB')
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 api = Api(app)
@@ -34,8 +41,18 @@ class EmailModel(db.Model):
     address = db.Column(db.String(128), nullable=False)
     active = db.Column(db.Boolean(), default=True, nullable=False)
 
-@app.route("/add/<name>")
+@app.route("/")
 def index(name):
+    return f'<h1>Index</h1>'
+
+@app.route('/cookie/')
+def cookie():
+    res = make_response("Setting a cookie")
+    res.set_cookie('foo', 'bar', max_age=60*60*24*365*2)
+    return res
+
+@app.route("/add/<name>")
+def add(name):
     usr = UserModel(username=name, password=generate_password_hash("test"))
     db.session.add(usr)
     db.session.commit()
@@ -61,9 +78,9 @@ def register():
         # Test form
         return '''\
         <form action="/test" method="POST">
-            <input name="username">
-            <input type="email" name="email">
-            <input name="password">
+            <input name="username" placeholder="username">
+            <input type="email" name="email" placeholder="email">
+            <input name="password" placeholder="password">
             <input type="submit">
         </form>'''
 
@@ -137,4 +154,4 @@ api.add_resource(User, '/user/<user_id>')
 if __name__ == "__main__":
     from app import db
     db.create_all()
-    app.run(debug=True)
+    app.run(debug=os.getenv('IS_PROD') == 'False')
