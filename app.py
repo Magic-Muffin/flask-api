@@ -32,14 +32,19 @@ class UserModel(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(128))
     date_created = db.Column(db.DateTime, default=datetime.now())
+    emails = db.relationship("emails")
     def __repr__(self):
         return '<User %r>' % self.username
 
 class EmailModel(db.Model):
     __tablename__ = 'emails'
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     address = db.Column(db.String(128), nullable=False)
     active = db.Column(db.Boolean(), default=True, nullable=False)
+    date_created = db.Column(db.DateTime, default=datetime.now())
+    def __repr__(self):
+        return '<Email %r>' % self.address
 
 @app.route("/")
 def index():
@@ -63,6 +68,7 @@ def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
+        email = request.form['email']
         if username == None:
             return jsonify({"error": f"Missing username argument."}, 400 )
         if password == None:
@@ -71,7 +77,10 @@ def register():
         if user == None:
             return jsonify({"error": f"Could not find user {username}."}, 400 )
         if check_password_hash(user.password, password):
-            token = jwt.encode({'user': username, 'exp': datetime.utcnow() + timedelta(minutes=30)}, app.config['SECRET_KEY'])
+            token = jwt.encode({
+                'user': username,
+                'exp': datetime.utcnow() + timedelta(minutes=30)
+                }, app.config['SECRET_KEY'])
             return jsonify({"success": "Login success", "token": token.decode('UTF-8')})
         return jsonify({"error": "Incorrect password"})
     else:
@@ -102,17 +111,24 @@ class UserList(Resource):
         users = db.session.query(UserModel).all()
         ret = {}
         for user in users:
-            ret[user.id] = {"username": user.username, "password": user.password, "date_created": str(user.date_created)}
+            ret[user.id] = {
+                "username": user.username, 
+                "password": user.password, 
+                "date_created": str(user.date_created)
+                }
         return ret
 
 class User(Resource):
     def get(self, user_id):
         user = db.session.query(UserModel).filter_by(id=user_id).first()
+        emails = db.session.query(EmailModel).filter_by(user_id=user_id).first()
         if user != None:
             return {user.id :{
                     "username": user.username, 
                     "password": user.password, 
-                    "date_created": str(user.date_created)}
+                    "date_created": str(user.date_created),
+                    "email": emails
+                    }
                 }
         return {"error": f"User not found by id {user_id}"}, 404
 
@@ -121,14 +137,20 @@ class CreateUser(Resource):
         args = parser.parse_args()
         username = args['username']
         password = args['password']
-        if username == None or password == None:
-            return {"error": f"Missing username either username or password."}, 400 
-        test = db.session.query(UserModel).filter_by(username=username).first()
-        if test != None:
+        email = args['email']
+        if username == None or password == None or email == None:
+            return {"error": f"Missing username either username, email or password."}, 400 
+        userTest = db.session.query(UserModel).filter_by(username=username).first()
+        emailTest = db.session.query(EmailModel).filter_by(address=email).first()
+        if userTest != None:
             return {"error": f"Username {username} already exists."}, 400 
+        if emailTest != None:
+            return {"error": f"Email address {email} already exists."}, 400 
         hashed_password = generate_password_hash(password)
         user = UserModel(username=username, password=hashed_password)
+        emailAddress = EmailModel(address=email, user_id=user.id)
         db.session.add(user)
+        db.session.add(emailAddress)
         db.session.commit()
         return {"success": f"user {username} created"}, 201
 
